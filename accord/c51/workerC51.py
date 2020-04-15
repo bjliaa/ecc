@@ -14,7 +14,7 @@ def worker(wid, env_str, k_steps, resumeflag=False):
     gpus = tf.config.experimental.get_visible_devices("GPU")
 
     # Select single gpu depending on wid
-    total_gpus = 1
+    total_gpus = 2
     gpu_nr = wid % total_gpus
     tf.config.set_visible_devices(gpus[gpu_nr], "GPU")
 
@@ -134,9 +134,20 @@ def worker(wid, env_str, k_steps, resumeflag=False):
         if t % printfreq == 0:
             tmptime = time.time()
             msit = (tmptime - dispatchtime) / printfreq * 1000
-            ma10 = np.mean(episode_rewards[-11:-1])
+            ma100 = np.nan
+            h100 = np.nan
+            ma10 = np.nan
+            h10 = np.nan
+            if len(episode_rewards) >= 10:
+                ma10 = np.mean(episode_rewards[-10:])
+                h10 = np.max(episode_rewards[-10:])
+            if len(episode_rewards) >= 100:
+                ma100 = np.mean(episode_rewards[-100:])
+                h100 = np.max(episode_rewards[-100:])
             dispatchtime = tmptime
-            tf.print(f"Step: {t}, MA10: {ma10:6.2f}, Speed: {msit:4.2f} ms/it")
+            tf.print(f"Step: {t}, " + f"MA100: {ma100:6.2f}, " +
+                     f"H100: {h100:4.1f}, " + f"MA10: {ma10:6.2f}, " +
+                     f"H10: {h10:4.1f}, " + f"Speed: {msit:4.2f} ms/sample")
 
         if t % savefreq == 0:
             modelsave(agent, env_str + "C51", t, wid)

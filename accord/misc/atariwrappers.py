@@ -20,6 +20,7 @@ def make_atari_train(env_id):
     env = FrameMonitor(env, max_num_frames_per_episode=1440 * 60 * 60)
     env = MaxAndSkipEnv(env, skip=4)
     env = EpisodicLifeEnv(env)
+    # env = FireResetEnv(env)
     env = WarpFrame(env)
     env = FrameStack(env, 4)
     return env
@@ -38,7 +39,7 @@ def make_atari_eval(env_id):
     env = NoopResetEnv(env, noop_max=30)
     env = MaxAndSkipEnv(env, skip=4)
     env = EpisodicLifeEnv(env)
-    env = FireResetEnv(env)
+    # env = FireResetEnv(env)
     env = WarpFrame(env)
     env = FrameStack(env, 4)
     return env
