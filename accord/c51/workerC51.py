@@ -5,17 +5,18 @@ def worker(wid, env_str, k_steps, resumeflag=False):
     import time
     import pickle
 
-    from accord.misc.atariwrappers import make_atari_train, wrap_deepmind
+    from accord.misc.atariwrappers import make_atari_train
     from accord.agents.distributional import DistAgent
     from accord.memory.memory import ReplayBuffer
     from accord.misc.util import Linear, rclip, datasave, modelsave
     from accord.c51.hyperparameters import paramdict
+
     gpus = tf.config.experimental.get_visible_devices("GPU")
 
     # Select single gpu depending on wid
     total_gpus = 1
     gpu_nr = wid % total_gpus
-    tf.config.set_visible_devices(gpus[gpu_nr], 'GPU')
+    tf.config.set_visible_devices(gpus[gpu_nr], "GPU")
 
     # Restricts mem to allow multiple tf sessions on one GPU
     tf.config.experimental.set_memory_growth(gpus[gpu_nr], True)
@@ -33,19 +34,24 @@ def worker(wid, env_str, k_steps, resumeflag=False):
     if resumeflag:
         t0 = pickle.load(open(chkpt_dir + "/currstep.pkl", "rb"))
         tf.print(
-            f"Resuming training on {env_str} at step {t0} for worker {wid}.")
+            f"Resuming training on {env_str} at step {t0} for worker {wid}."
+        )
         tf.print(f"Loading memory...")
         mem = pickle.load(open(chkpt_dir + "/mem.pkl", "rb"))
         tf.print(f"Done.")
     else:
-        mem = ReplayBuffer(size=params["mem size"],
-                           batchsize=params["batch size"])
+        mem = ReplayBuffer(
+            size=params["mem size"], batchsize=params["batch size"]
+        )
         t0 = 0
 
     # Train parameters
     N = int(k_steps * 1e3)
-    eps = Linear(params["start epsilon"], params["final epsilon"],
-                 params["explore steps"])
+    eps = Linear(
+        params["start epsilon"],
+        params["final epsilon"],
+        params["explore steps"],
+    )
     gamma = params["gamma"]
     updatefreq = params["update freq"]
     targetfreq = params["target update freq"]
@@ -54,9 +60,9 @@ def worker(wid, env_str, k_steps, resumeflag=False):
     printfreq = params["print freq"]
     savefreq = params["save freq"]
     checkpoint = tf.train.Checkpoint(agent=agent)
-    manager = tf.train.CheckpointManager(checkpoint,
-                                         directory=chkpt_dir,
-                                         max_to_keep=1)
+    manager = tf.train.CheckpointManager(
+        checkpoint, directory=chkpt_dir, max_to_keep=1
+    )
     if resumeflag:
         checkpoint.restore(manager.latest_checkpoint)
 
@@ -141,12 +147,12 @@ def worker(wid, env_str, k_steps, resumeflag=False):
     msit = tottime / N * 1000
     tf.print(f"Learning done in {tottime:6.0f}s using {msit:4.2f} ms/it.")
     tf.print(f"Saving checkpoint for worker {wid}...")
-    manager.save()
-    t0 = t0 + N
-    pickle.dump(t0,
-                open(chkpt_dir + "/currstep.pkl", "wb"),
-                protocol=pickle.HIGHEST_PROTOCOL)
-    pickle.dump(mem,
-                open(chkpt_dir + "/mem.pkl", "wb"),
-                protocol=pickle.HIGHEST_PROTOCOL)
+    # manager.save()
+    # t0 = t0 + N
+    # pickle.dump(t0,
+    #             open(chkpt_dir + "/currstep.pkl", "wb"),
+    #             protocol=pickle.HIGHEST_PROTOCOL)
+    # pickle.dump(mem,
+    #             open(chkpt_dir + "/mem.pkl", "wb"),
+    #             protocol=pickle.HIGHEST_PROTOCOL)
     tf.print("Done.")

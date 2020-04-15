@@ -16,6 +16,6 @@ def paramdict():
         "mem size": int(0.9e6),
         "prefill size": int(50e3),
         "gamma": 0.99,
-        "batch size": 32
+        "batch size": 32,
     }
     return d
