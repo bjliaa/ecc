@@ -102,13 +102,6 @@ class AmpDistAgent(tf.Module):
         self.ampnet.update(wlst)
 
     @tf.function
-    def update_self(self):
-        q_vars = self.probnet.trainable_variables
-        t_vars = self.selfnet.trainable_variables
-        for var_q, var_t in zip(q_vars, t_vars):
-            var_t.assign(var_q)
-
-    @tf.function
     def train(self, states, actions, drews, gexps, endstates, dones):
         with tf.GradientTape() as tape:
             batch_size = tf.shape(states)[0]

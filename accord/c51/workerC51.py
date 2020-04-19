@@ -99,7 +99,7 @@ def worker(wid, env_str, k_steps, resumeflag=False):
     tottime = time.time()
     dispatchtime = tottime
 
-    # Training loop (8-9 ms/step Björn@home, 7.3ms/step HPCC)
+    # Training loop
     tf.print(f"Worker {wid} learning...")
     state = env.reset()
     episode_rewards = [0.0]

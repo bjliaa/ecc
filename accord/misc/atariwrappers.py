@@ -17,7 +17,7 @@ def make_atari_train(env_id):
     """
     env = gym.make(env_id)
     assert "NoFrameskip" in env.spec.id
-    env = FrameMonitor(env, max_num_frames_per_episode=1440 * 60 * 60)
+    env = FrameMonitor(env, 1440*60*60)
     env = MaxAndSkipEnv(env, skip=4)
     env = EpisodicLifeEnv(env)
     # env = FireResetEnv(env)

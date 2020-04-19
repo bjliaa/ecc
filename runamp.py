@@ -2,7 +2,7 @@ import multiprocessing as mp
 import time
 import argparse
 
-from accord.amp.workeramp import worker
+from accord.amp.workeramp import worker, dispatcher
 from accord.amp.hyperparameters import paramdict
 
 if __name__ == '__main__':
@@ -30,8 +30,7 @@ if __name__ == '__main__':
     wids = args.wids
     vsize = len(wids)
     N = args.k * 1000
-    updatefreq = params["target update freq"]
-    groupfreq = params["group"]
+    targetfreq = params["target update freq"]
 
     # Multiprocessing
     sqs = [mp.Queue() for wid in wids]
@@ -42,33 +41,9 @@ if __name__ == '__main__':
         workers.append(mp.Process(target=worker, args=args))
         workers[i].start()
 
-    # Initial dispatch
-    while True:
-        if all([not sqs[i].empty() for i in range(vsize)]):
-            wlst = []
-            for i in range(vsize):
-                wlst.append(sqs[i].get())
-            for i in range(vsize):
-                aqs[i].put(wlst)
-            break
-        else:
-            time.sleep(1)
+    disp = mp.Process(target=dispatcher, args=(sqs,aqs,N,vsize, targetfreq))
+    disp.start()
 
-    # Loop
-    group = True
-    for t in range(1, N + 1):
-
-        if t % groupfreq == 0:
-            group = not group
-
-        if t % updatefreq == 0 and group:
-            while True:
-                if all([not sqs[i].empty() for i in range(vsize)]):
-                    wlst = []
-                    for i in range(vsize):
-                        wlst.append(sqs[i].get())
-                    for i in range(vsize):
-                        aqs[i].put(wlst)
-                    break
-                else:
-                    time.sleep(1)
+    for i in range(vsize):
+        workers[i].join()
+    disp.join()

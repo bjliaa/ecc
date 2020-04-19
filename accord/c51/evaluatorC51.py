@@ -14,7 +14,7 @@ def evaluator(wid, env_str, start, end):
 
     gpus = tf.config.experimental.get_visible_devices("GPU")
     # Select single gpu depending on wid
-    total_gpus = 1
+    total_gpus = 2
     gpu_nr = wid % total_gpus
     tf.config.set_visible_devices(gpus[gpu_nr], 'GPU')
 
@@ -63,7 +63,7 @@ def evaluator(wid, env_str, start, end):
     tottime = time.time()
     dispatchtime = tottime
 
-    # Eval loop (5 ms/step Björn@home)
+    # Eval loop
     tf.print(f"Model id: {wid}")
     t_eps = tf.constant(evaleps, dtype=tf.float32)
     off = max(start, 1)

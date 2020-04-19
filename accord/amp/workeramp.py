@@ -13,7 +13,7 @@ def worker(wid, env_str, N, vsize, sq, aq):
     gpus = tf.config.experimental.get_visible_devices("GPU")
 
     # Select gpu depending on wid
-    total_gpus = 1
+    total_gpus = 2
     gpu_nr = wid % total_gpus
     tf.config.set_visible_devices(gpus[gpu_nr], 'GPU')
 
@@ -65,21 +65,14 @@ def worker(wid, env_str, N, vsize, sq, aq):
 
     # Warm up
     states, _, _, _, _, _, = mem.sample()
-    agent = AmpDistAgent(action_len, vsize=vsize, dense=int(512))
+    agent = AmpDistAgent(action_len, vsize=vsize, dense=int(512), name=f"Agent{wid}")
     agent.probvalues(states)
     agent.t_probvalues(states)
-    agent.s_probvalues(states)
-    agent.update_self()
 
     # Initial dispatch
-    # sq.put(agent.probnet.trainable_variables)
     sq.put(agent.probnet.get_weights())
-    while True:
-        if not aq.empty():
-            wlst = aq.get()
-            agent.update_target(wlst)
-            break
-        time.sleep(0.01)
+    wlst = aq.get()
+    agent.update_target(wlst)
     print(f"Worker{wid} initial dispatch.")
     tottime = time.time()
     dispatchtime = tottime
@@ -87,7 +80,7 @@ def worker(wid, env_str, N, vsize, sq, aq):
     # Training loop
     print(f"Worker{wid} learning...")
     state = env.reset()
-    episode_rewards = [0.0]
+    episode_rewards = []
     buff = []
     for t in range(1, N + 1):
         t_eps = tf.constant(eps(t), dtype=tf.float32)
@@ -111,24 +104,30 @@ def worker(wid, env_str, N, vsize, sq, aq):
                 mem.add(data)
             buff = []
             (states, actions, drews, gexps, endstates, dones) = mem.sample()
-
+            agent.train(states, actions, drews, gexps, endstates, dones)
+            
         if t % targetfreq == 0:
             sq.put(agent.probnet.get_weights())
-            while True:
-                if not aq.empty():
-                    wlst = aq.get()
-                    agent.update_target(wlst)
-                    break
-                time.sleep(0.01)
+            wlst = aq.get()
+            agent.update_target(wlst)
 
         if t % printfreq == 0:
             tmptime = time.time()
             msit = (tmptime - dispatchtime) / printfreq * 1000
-            ma10 = np.mean(episode_rewards[-11:-1])
+            ma100 = np.nan
+            h100 = np.nan
+            ma10 = np.nan
+            h10 = np.nan
+            if len(episode_rewards) >= 10:
+                ma10 = np.mean(episode_rewards[-10:])
+                h10 = np.max(episode_rewards[-10:])
+            if len(episode_rewards) >= 100:
+                ma100 = np.mean(episode_rewards[-100:])
+                h100 = np.max(episode_rewards[-100:])
             dispatchtime = tmptime
-            print(
-                f"Worker{wid}, Step: {t}, MA10: {ma10:6.2f}, Speed: {msit:4.2f} ms/it"
-            )
+            tf.print(f"Step: {t}, " + f"MA100: {ma100:6.2f}, " +
+                     f"H100: {h100:4.1f}, " + f"MA10: {ma10:6.2f}, " +
+                     f"H10: {h10:4.1f}, " + f"Speed: {msit:4.2f} ms/sample")
 
         if t % savefreq == 0:
             modelsave(agent, env_str + "Amp", t, wid)
@@ -140,3 +139,19 @@ def worker(wid, env_str, N, vsize, sq, aq):
     print(
         f"Worker{wid}: Learning done in {tottime:6.0f}s using {msit:4.2f} ms/it."
     )
+
+def dispatcher(sqs,aqs, N, vsize, targetfreq):
+    import copy
+    # Initial
+    wlst = [sqs[i].get() for i in range(vsize)]    
+    for i in range(vsize):
+        lst = [wlst[i].copy() for i in range(vsize)]
+        aqs[i].put(lst)    
+
+    # Train
+    for t in range(1, N + 1):
+        if t % targetfreq == 0:
+            wlst = [sqs[i].get() for i in range(vsize)]    
+            for i in range(vsize):
+                lst = [wlst[i].copy() for i in range(vsize)]
+                aqs[i].put(lst)  
